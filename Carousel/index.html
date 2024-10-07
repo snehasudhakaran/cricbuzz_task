@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <title>Carousel Slider</title>
+    <style>
+       
+    </style>
+</head>
+<body class="bg-gray-100 py-20">
+
+<div class="container mx-auto mt-10">
+    <div class="overflow-hidden relative">
+        <div id="carousel" class="carousel">
+            <!-- Carousel items will be dynamically populated here -->
+        </div>
+    </div>
+    
+    <!-- Navigation dots -->
+    <div class="flex justify-center mt-4">
+        <button class="dot w-3 h-3 rounded-full mx-1" data-slide="0"></button>
+        <button class="dot w-3 h-3 rounded-full mx-1" data-slide="1"></button>
+        <button class="dot w-3 h-3 rounded-full mx-1" data-slide="2"></button>
+    </div>
+</div>
+
+<div class="manual-carousel-container">
+    <!-- Left Arrow -->
+    <button id="prev" class="arrow-btn left-arrow">&#8592;</button>
+
+    <!-- Carousel Wrapper -->
+    <div class="manual-carousel-wrapper">
+      <div id="manual-carousel" class="manual-carousel">
+        <!-- Containers will be added dynamically here -->
+      </div>
+    </div>
+
+    <!-- Right Arrow -->
+    <button id="next" class="arrow-btn right-arrow">&#8594;</button>
+  </div>
+
+  <script src="manual_carousel.js"></script>
+
+<script>
+    const carousel = document.getElementById('carousel');
+    const dots = document.querySelectorAll('.dot');
+    let currentSlide = 0;
+    let autoScrollInterval;
+
+    // Data from data.json
+    fetch('data.json')
+        .then(response => response.json())
+        .then(data => {
+            const itemsPerSlide = 3; // Number of containers per slide
+            const totalSlides = Math.ceil(data.length / itemsPerSlide); // Calculate total slides
+
+            // slides based on the data
+            for (let i = 0; i < totalSlides; i++) {
+                const slide = document.createElement('div');
+                slide.classList.add('carousel-item');
+
+                // containers for each item in the current slide
+                for (let j = 0; j < itemsPerSlide; j++) {
+                    const index = i * itemsPerSlide + j; // Calculate the index in the data array
+
+                    if (index < data.length) { // Check if the index is within bounds
+                        const match = data[index];
+                        const container = document.createElement('div');
+                        container.classList.add('carousel-container', 'bg-white', 'rounded-lg', 'shadow');
+
+                        // score content
+                        let scoreContent = `
+                            <h3 class="font-bold text-lg mb-2">${match.seriesName}</h3>
+                            <div class="mb-5">${match.Team1Name} (${match.Team1SName}) vs ${match.Team2Name} (${match.Team2SName})</div>
+                        `;
+
+                        if (match.scores.length > 0) {
+                            match.scores.forEach(score => {
+                                // An array to hold the innings content
+                                const inningsContent = [];
+                                const teamOccurrences = {}; // Object to track teams and their data
+                        
+                                // Check each inning dynamically
+                                for (let i = 1; i <= Object.keys(score).length; i++) {
+                                    const inning = score[`inns${i}`]; // Access innings dynamically
+                                    if (inning) { // Check if the inning exists
+                                        const teamName = inning.team;
+                        
+                                        // Initialized team data if it doesn't exist
+                                        if (!teamOccurrences[teamName]) {
+                                            teamOccurrences[teamName] = [];
+                                        }
+                        
+                                        // Current inning data into the team's array
+                                        teamOccurrences[teamName].push({
+                                            score: inning.score,
+                                            wickets: inning.wkt,
+                                            overs: inning.over
+                                        });
+                                    }
+                                }
+                        
+                                // Formatted output for each team based on occurrences
+                                for (const team in teamOccurrences) {
+                                    const inningsArray = teamOccurrences[team];
+                                    if (inningsArray.length > 0) {
+                                        // The content for the team
+                                        let teamContent = `<span class="font-bold">${team}<span> - `;
+                                        inningsArray.forEach((inning, index) => {
+                                            // Add first inning normally and subsequent innings with just score/wicket/over
+                                            if (index === 0) {
+                                                teamContent += `<span class="font-normal">${inning.score}<span> / ${inning.wickets} (${inning.overs})`;
+                                            } else {
+                                                teamContent += ` && ${inning.score} / ${inning.wickets} (${inning.overs})`;
+                                            }
+                                        });
+                        
+                                        inningsContent.push(`
+                                            <div>
+                                                ${teamContent}
+                                            </div>
+                                        `);
+                                    }
+                                }
+                        
+                                // Combine all innings content into scoreContent
+                                scoreContent += inningsContent.join(''); // Join the innings content
+                            });
+                        } else {
+                            scoreContent += `<div>No scores available for this match.</div>`;
+                        }
+                        
+                        
+
+                        container.innerHTML = scoreContent;
+                        slide.appendChild(container);
+                    }
+                }
+
+                carousel.appendChild(slide); // Add the constructed slide to the carousel
+            }
+
+            updateCarousel(); // Initial carousel update
+            startAutoScroll(); // Start automatic scrolling
+        });
+
+    function updateCarousel() {
+        carousel.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+        dots.forEach(dot => dot.classList.remove('active'));
+        dots[currentSlide].classList.add('active');
+    }
+
+    function startAutoScroll() {
+        autoScrollInterval = setInterval(() => {
+            currentSlide = (currentSlide + 1) % dots.length; // Loop back to the first slide
+            updateCarousel();
+        }, 3000); // Change slide every 3 seconds (3000 milliseconds)
+    }
+
+    function stopAutoScroll() {
+        clearInterval(autoScrollInterval);
+    }
+
+    // Dot navigation
+    dots.forEach(dot => {
+        dot.addEventListener('click', (e) => {
+            stopAutoScroll(); // Stop auto-scrolling on user interaction
+            currentSlide = Number(e.target.getAttribute('data-slide'));
+            updateCarousel();
+            startAutoScroll(); // Restart auto-scrolling
+        });
+    });
+</script>
+</body>
+</html>
